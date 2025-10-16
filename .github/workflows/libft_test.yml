@@ -35,25 +35,33 @@ jobs:
           "$HOME/francinette/tester.sh"
 
   deploy_to_vog:
-    if: github.ref == 'refs/heads/vogsphere'
-    runs-on: ubuntu-latest
-    needs: test_project_model
-    
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: vogsphere
-          
-      - name: Configure Git for Deployment
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
-          
-          DEPLOY_URL="https://${{ secrets.DEPLOY_TOKEN }}@github.com/<GITHUB_USERNAME>/<REPO_CIBLE>.git"
-          
-          git remote add vog_remote $DEPLOY_URL
+  if: github.ref == 'refs/heads/vogsphere'
+  runs-on: ubuntu-latest
+  
+  steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        ref: vogsphere
+        
+    - name: Setup SSH Key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+    - name: Add Vogsphere to known_hosts
+      run: |
+        VOGSPHERE_HOST="vogsphere.42heilbronn.de" 
+        mkdir -p ~/.ssh
+        ssh-keyscan -H $VOGSPHERE_HOST >> ~/.ssh/known_hosts
+        
+    - name: Configure Git Remote
+      run: |
+        git config user.name "GitHub Actions Vogsphere Deployer"
+        git config user.email "actions@github.com"
+        
+        git remote add vog_remote ${{ secrets.VOG_REPO_LINK }}
 
-      - name: Push to Target Repository
-        run: |
-          git push -f vog_remote vogsphere:main
+    - name: Push to Vogsphere
+      run: |
+        git push -f vog_remote vogsphere:master
