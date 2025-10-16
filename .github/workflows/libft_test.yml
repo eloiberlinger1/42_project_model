@@ -1,0 +1,59 @@
+name: Testing Project Model
+
+on: [push]
+
+jobs:
+  test_project_model:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git
+
+      - name: Install Norminette
+        run: |
+          sudo apt-get install -y python3-setuptools pipx
+          pipx install norminette
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Francinette
+        run: |
+          git clone https://github.com/xicodomingues/francinette.git "$HOME/francinette"
+          cd "$HOME/francinette"
+          ./bin/install.sh
+
+      - name: Run Francinette Tests
+        run: |
+          cd $GITHUB_WORKSPACE
+          "$HOME/francinette/tester.sh"
+
+  deploy_to_vog:
+    if: github.ref == 'refs/heads/vogsphere'
+    runs-on: ubuntu-latest
+    needs: test_project_model
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: vogsphere
+          
+      - name: Configure Git for Deployment
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          
+          DEPLOY_URL="https://${{ secrets.DEPLOY_TOKEN }}@github.com/<GITHUB_USERNAME>/<REPO_CIBLE>.git"
+          
+          git remote add vog_remote $DEPLOY_URL
+
+      - name: Push to Target Repository
+        run: |
+          git push -f vog_remote vogsphere:main
